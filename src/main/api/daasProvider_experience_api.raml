@@ -1,0 +1,87 @@
+#%RAML 1.0
+title: DassProviders Experience API
+baseUri: /daasproviders
+version: v1
+documentation: 
+ - title: Home
+   content: |
+    This API is used for tracking , cancelling
+    through HTTPS based APIs using GET method
+mediaType: application/json
+protocols: HTTPS
+
+uses:
+ track: /schemas/com.kfc.templates/Dass_success_response.raml
+ response: /schemas/com.kfc.templates/Dass_Error_Response.raml
+
+types:
+ RESPONSE:  track.trackingresponse
+ ERRORRESPONSE: response.ErrorResponse
+
+/daasproviders: 
+  description: |
+      This API request 2 kinds of operation Tracking and cancelling the order.
+  get:
+    headers:
+      Content-Type:
+          displayName: Content-type
+          description: Application/json
+          type: string
+          required: true
+      source_channel_name :
+          displayName: source_channel_name 
+          description: Source channel name from which transaction is made. 
+          type: string
+          required: true
+      target_channel_name  :
+          displayName: target_channel_name 
+          description: Target channel name for which transaction is made.  
+          type: string
+          required: true
+      
+    queryParameters:
+      delivery_providername:
+       description: delivery provider name 
+       required: true
+       maxLength: 30
+       type: string
+       enum: ['runnr','shadowfax']
+    
+      orderId: 
+       description: order ID of the provider either to track or  cancel order 
+       required: true
+       maxLength: 30
+       type: string
+       enum: ['runnr_orderid','shadowfax_orderid']
+  
+      operationType: 
+       description: type of the operation to be performed
+       required: true 
+       maxLength: 30
+       type: string
+       enum: ['track_order','cancel_order']
+
+    responses:
+        200:
+          body:
+            application/json:
+              type: RESPONSE
+              example: !include samples/example.raml
+        400:
+          body:
+             application/json:         
+                type: ERRORRESPONSE
+                example: !include samples/Dass_Error_Response.raml  
+        500:
+          body:
+            type: ERRORRESPONSE
+            example: !include samples/Dass_Error_Response.raml
+        404:
+          body:        
+            type: ERRORRESPONSE
+            example: !include samples/Dass_Error_Response.raml      
+        202:
+          body:        
+            type: ERRORRESPONSE
+            example: !include samples/Dass_Error_Response.raml
+              

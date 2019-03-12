@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:context="http://www.springframework.org/schema/context" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="httpListenerConfig" host="${http.listner.host}" port="${http.listner.port}" doc:name="HTTP Listener Configuration" />
+    <apikit:config name="daas-experience-api-config" raml="daasProvider_experience_api.raml" consoleEnabled="false" doc:name="Router" keepRamlBaseUri="false">
+        <apikit:flow-mapping resource="/daasproviders" action="get" content-type="application/json" flow-ref="daasProviders_flow" />
+    </apikit:config>
+    <http:request-config name="HTTP_runnr_Configuration" host="${runner.system.http.host}" port="${runner.system.http.port}" doc:name="HTTP Request Configuration" usePersistentConnections="false" />
+    <context:property-placeholder location="properties-${env}.properties" />
+    <http:request-config name="HTTP_Shadowfax_Request_Configuration" host="${shadowfax.system.http.host}" port="${shadowfax.system.http.port}" doc:name="HTTP Request Configuration" />
+    <flow name="daasProviders_experience_api_main">
+        <http:listener config-ref="httpListenerConfig" path="/*" doc:name="Invoke daasProviders" />
+                <set-session-variable variableName="messageId" value="#[message.inboundProperties.messageId == null ? message.id : message.inboundProperties.messageId] " doc:name="Set Message Id"/>
+        <apikit:router config-ref="daas-experience-api-config" doc:name="APIkit Router" />
+        
+        <exception-strategy ref="globalexception" doc:name="Reference Exception Strategy" />
+    </flow>
+    <flow name="daasProviders_experience_api_console">
+        <http:listener config-ref="httpListenerConfig" path="/console/*" doc:name="HTTP" />
+        <apikit:console config-ref="daas-experience-api-config" doc:name="APIkit Console" />
+    </flow>
+    <flow name="daasProviders_flow">
+        <logger message="#[message.id]" level="INFO" doc:name="Log message id" />
+        <set-variable variableName="deliveryProvider" value="#[message.inboundProperties.'http.query.params'.delivery_providername]" doc:name="deliveryProvider" />
+        <set-variable variableName="orderId" value="#[message.inboundProperties.'http.query.params'.orderId]" doc:name="orderId" />
+        <set-variable variableName="trackorcancel" value="#[message.inboundProperties.'http.query.params'.operationType]" doc:name="operationType" />
+        <choice doc:name="Route Based on DeliveryProvider">
+            <when expression="#[flowVars.deliveryProvider=='runnr']">
+                <http:request config-ref="HTTP_runnr_Configuration" path="/track" method="GET" doc:name="Invoke runnr ">
+                    <http:request-builder>
+                        <http:query-param paramName="delivery_providername" value="#[flowVars.deliveryProvider]"/>
+                        <http:query-param paramName="orderId" value="#[flowVars.orderId]"/>
+                        <http:query-param paramName="operationType" value="#[flowVars.trackorcancel]"/>
+                        <http:header headerName="Content-Type" value="application/json"/>
+                        <http:header headerName="source_channel_name" value="POS"/>
+                        <http:header headerName="target_channel_name" value="runnr"/>
+
+                    </http:request-builder>
+                </http:request>
+            </when>
+            <otherwise>
+                <http:request config-ref="HTTP_Shadowfax_Request_Configuration" path="/track" method="GET" doc:name="Invoke shadowfax">
+                    <http:request-builder>
+                        <http:query-param paramName="delivery_providername" value="#[flowVars.deliveryProvider]"/>
+                        <http:query-param paramName="orderId" value="#[flowVars.orderId]"/>
+                        <http:query-param paramName="operationType" value="#[flowVars.trackorcancel]"/>
+                        <http:header headerName="Content-Type" value="application/json"/>
+                        <http:header headerName="target_channel_name" value="xcvge"/>
+                        <http:header headerName="source_channel_name" value="malij"/>
+
+                    </http:request-builder>
+                </http:request>
+            </otherwise>
+        </choice>
+
+        <exception-strategy ref="globalexception" doc:name="Reference Exception Strategy" />
+    </flow>
+
+</mule>
